@@ -7,6 +7,7 @@ from PIL import Image
 import os
 import os.path
 from utils.logger import logger
+import numpy as np
 
 class EpicKitchensDataset(data.Dataset, ABC):
     def __init__(self, split, modalities, mode, dataset_conf, num_frames_per_clip, num_clips, dense_sampling,
@@ -65,27 +66,37 @@ class EpicKitchensDataset(data.Dataset, ABC):
 
             self.model_features = pd.merge(self.model_features, self.list_file, how="inner", on="uid")
 
-    def _get_train_indices(self, record, modality='RGB'):
-        ##################################################################
-        # TODO: implement sampling for training mode                     #
-        # Give the record and the modality, this function should return  #
-        # a list of integers representing the frames to be selected from #
-        # the video clip.                                                #
-        # Remember that the returned array should have size              #
-        #           num_clip x num_frames_per_clip                       #
-        ##################################################################
-        raise NotImplementedError("You should implement _get_train_indices")
+    def _get_train_indices(self, record, modality):
+        num_vectors = 5  # Number of vectors to extract
+        start_frame = record.start_frame
+        end_frame = record.end_frame
+        vector_length = end_frame - start_frame
+        
+        if vector_length >= 80:
+            vector_indices = np.arange(0, vector_length, 2)  # Indices with stride of 2
+            centroid_indices = np.linspace(0, len(vector_indices) - 16, num_vectors, dtype=int)
+            concatenated_vector = np.concatenate([vector_indices[i:i+16] for i in centroid_indices])
+        else:
+            centroid_indices = np.linspace(0, vector_length - 16, num_vectors, dtype=int)
+            concatenated_vector = np.concatenate([np.arange(i, i+16) for i in centroid_indices])
+
+    return concatenated_vector
 
     def _get_val_indices(self, record, modality):
-        ##################################################################
-        # TODO: implement sampling for testing mode                      #
-        # Give the record and the modality, this function should return  #
-        # a list of integers representing the frames to be selected from #
-        # the video clip.                                                #
-        # Remember that the returned array should have size              #
-        #           num_clip x num_frames_per_clip                       #
-        ##################################################################
-        raise NotImplementedError("You should implement _get_val_indices")
+        num_vectors = 5  # Number of vectors to extract
+        start_frame = record.start_frame
+        end_frame = record.end_frame
+        vector_length = end_frame - start_frame
+        
+        if vector_length >= 80:
+            vector_indices = np.arange(0, vector_length, 2)  # Indices with stride of 2
+            centroid_indices = np.linspace(0, len(vector_indices) - 16, num_vectors, dtype=int)
+            concatenated_vector = np.concatenate([vector_indices[i:i+16] for i in centroid_indices])
+        else:
+            centroid_indices = np.linspace(0, vector_length - 16, num_vectors, dtype=int)
+            concatenated_vector = np.concatenate([np.arange(i, i+16) for i in centroid_indices])
+
+        return concatenated_vector
 
     def __getitem__(self, index):
 
