@@ -1,13 +1,13 @@
 import torch.nn as nn
 import torch
-#import models
+import models
 from torch.autograd import Function
 from models import TRNmodule
 
 class TA3N(nn.Module):
     "Model architecture explained in the paper Temporal Attentive Alignment for Large-Scale Video Domain Adaptation"
 
-    def __init__(self, num_classes=8, input_feature_dim=1024, name='ta3n', model_config=None):
+    def __init__(self,  input_feature_dim=1024, num_classes=8, model_config=None, name='ta3n'):
         """Iniziales TA3N model instance
         Args:
               num_classes ---> output in the logit layer of the predictor
@@ -31,18 +31,19 @@ class TA3N(nn.Module):
         self.gsf = self.FCL(input_feature_dim=self.input_feature_dim, output_feature_dim=self.input_feature_dim, dropout=model_config.dropout)
 
         """Domain Classifier ---> Gsd"""
-        self.gsd = self.DomainClassifier(input_feature_dim=self.input_feature_dim, dropout=model_config.dropout)
+        self.gsd = self.DomainClassifier(input_feature_dim=self.input_feature_dim, beta = self.model_config.beta0 , dropout=model_config.dropout)
 
         """Temporal Module ---> TemporalPooling/TemporalRelation"""
         self.temporal_module = self.TemporalModule(self.input_feature_dim,self.train_clips, self.aggregation_strategy, self.model_config)
         self.input_feature_dim = self.temporal_module.output_feature_dim  #input_feature_dim diventa num_bottlenecks(TRN) oppure output_feature_dim(TemporalPooling)
-
+        print(self.temporal_module.output_feature_dim)
         """Domain Classifiers ---> Gtd & Grd"""
+        self.grd = []
         if model_config.aggregation_strategy == 'TemporalRelation':
-            for i in range(self.n_relation):
-                self.grd[i] = self.DomainClassifier(self.model_config.num_bottleneck, dropout = model_config.dropout) #one for each relation
+            for i in range(self.n_relations):
+                self.grd.append(self.DomainClassifier(self.model_config.num_bottleneck, beta = self.model_config.beta1, dropout = model_config.dropout)) #one for each relation
 
-        self.gtd = self.DomainClassifier(input_feature_dim=self.input_feature_dim, dropout=model_config.dropout)
+        self.gtd = self.DomainClassifier(input_feature_dim=self.input_feature_dim, beta = self.model_config.beta0, dropout=model_config.dropout)
 
         """Final Classifier"""
         self.gy = self.FCL(input_feature_dim=self.input_feature_dim, output_feature_dim=self.num_classes, dropout=model_config.dropout)
@@ -72,17 +73,18 @@ class TA3N(nn.Module):
         target_data = self.gsf(target_data) if training else None
 
         """Domain Classifier ---> Gsd"""
-        pred_gsd_source = self.gsd(source_data)
-        pred_gsd_target = self.gsd(target_data) if training else None
+        pred_gsd_source = self.gsd(source_data.view((-1,1024)))
+        pred_gsd_target = self.gsd(target_data.view((-1,1024))) if training else None
 
         """Temporal Module ---> TemporalPooling/TemporalRelation"""
-        source_data, dict_feat_trn_source = self.temporal_module(source_data, train_clips, strategy = self.model_config.aggregation_strategy, model_config=self.model_config)
-        target_data, dict_feat_trn_target = self.temporal_module(target_data, train_clips, strategy = self.model_config.aggregation_strategy, model_config=self.model_config) if training else None
+        source_data, dict_feat_trn_source = self.temporal_module(source_data, train_clips)
+        target_data, dict_feat_trn_target = self.temporal_module(target_data, train_clips) if training else None
 
         """Domain Classifiers ---> Grd"""
-        for i in range(self.n_relations):
-            pred_grd_source = self.grd[i](dict_feat_trn_source[str(i)])
-            pred_grd_target = self.grd[i](dict_feat_trn_target[str(i)]) if training else None
+        if self.model_config.aggregation_strategy == 'TemporalRelation':
+            for i in range(self.n_relations):
+                pred_grd_source = self.grd[i](dict_feat_trn_source[i])
+                pred_grd_target = self.grd[i](dict_feat_trn_target[i]) if training else None
 
         """??? implement attention ???""" ##manca implementazione
         if self.model_config.use_attention:
@@ -91,7 +93,7 @@ class TA3N(nn.Module):
 
             pass
 
-        if self.model_config.strategy == 'TemporalRelation':
+        if self.model_config.aggregation_strategy == 'TemporalRelation':
             source_data = torch.sum(source_data, 1)
             target_data = torch.sum(target_data, 1) if training else None
 
@@ -103,23 +105,26 @@ class TA3N(nn.Module):
         final_logits_source = self.gy(source_data)
         final_logits_target = self.gy(target_data)
 
-        return final_logits_source ### e molte altre cosine
-
+        return final_logits_source , { "pred_gsd_source": pred_gsd_source,"pred_gsd_target": pred_gsd_target, \
+                                                                    "pred_gtd_source": pred_gtd_source,"pred_gtd_target": pred_gtd_target, \
+                                                                    "pred_grd_source": pred_grd_source,"pred_grd_target": pred_grd_target,
+                                                                    "pred_clf_source": final_logits_source,"pred_clf_target": final_logits_target}
+    
     class TemporalModule(nn.Module):
         """Implementation of 2 different strategies to aggregate the frame features"""
         def __init__(self, input_feature_dim, train_clips, strategy = 'TemporalPooling',  model_config=None):
-            super(TA3N.TemporalModule).__init__()
+            super(TA3N.TemporalModule, self).__init__()
             self.input_feature_dim = input_feature_dim
             self.strategy = strategy
             self.model_config = model_config
             self.num_bottleneck = 512
             self.train_segments = 5
-            if strategy == 'TemporalRelation':
-               self.output_feature_dim = self.num_bottleneck
+            if strategy == 'TemporalPooling':
+               self.output_feature_dim = self.input_feature_dim
             else:
               """TemporalRelation"""
-              self.output_feature_dim = input_feature_dim
-              self.temporalRelation = TRNmodule.RelationModule(self.input_feature_dim, self.num_bottleneck, self.train_segments)
+              self.output_feature_dim = self.num_bottleneck
+              self.temporalRelation = TRNmodule.RelationModuleMultiScale(self.input_feature_dim, self.num_bottleneck, self.train_segments)
 
 
 
@@ -128,9 +133,10 @@ class TA3N(nn.Module):
             if self.strategy == 'TemporalPooling':
                 x = nn.AvgPool2d([clips, 1])(x)
                 x = x.squeeze(1).squeeze(1)
+                return x, None
             else:
               """TemporalRelation"""
-              x, features = self.temporalRelation(x)
+              x, features = self.temporalRelation(x.squeeze(1))
               return x, features
 
 
@@ -144,10 +150,10 @@ class TA3N(nn.Module):
             super(TA3N.FCL, self).__init__()
             self.input_feature_dim = input_feature_dim
             self.output_feature_dim = output_feature_dim
-            self.dropout = dropout
+            self.dropout = nn.Dropout(p=dropout)
             self.linear = nn.Linear(self.input_feature_dim, self.output_feature_dim)
             self.relu = nn.ReLU()
-            self.dropout = nn.Dropout(p=self.dropout)
+            
 
         def forward(self, x):
             x = self.linear(x)
@@ -170,19 +176,18 @@ class TA3N(nn.Module):
     class DomainClassifier(nn.Module):
         """Implementation of Gd"""
 
-        def __init__(self, input_feature_dim, dropout):
+        def __init__(self, input_feature_dim, dropout, beta):
             super(TA3N.DomainClassifier, self).__init__()
             self.input_feature_dim = input_feature_dim
+            self.beta = beta
             self.output_feature_dim = 2
-            self.hidden_dim = 100
-            self.dropout
-            self.linear = nn.Linear(self.input_feature_dim, self.hidden_dim)
-            self.hidden = nn.Linear(self.hidden_dim, self.output_feature_dim)
+            self.linear = nn.Linear(self.input_feature_dim, self.input_feature_dim)
+            self.hidden = nn.Linear(self.input_feature_dim, self.output_feature_dim)
             self.relu = nn.ReLU()
-            self.dropout = nn.Dropout(p=self.dropout)
+            self.dropout = nn.Dropout(p=dropout)
 
         def forward(self, x):
-            x = TA3N.GradReverse.apply(x)
+            x = TA3N.GradReverse.apply(x, self.beta)
             x = self.linear(x)
             x = self.relu(x)
             x = self.dropout(x)

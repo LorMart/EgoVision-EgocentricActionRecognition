@@ -39,13 +39,14 @@ dataset:
   RGB:
     data_path: ??? # path to RGB data
     tmpl: "img_{:010d}.jpg" # format of RGB filenames
-    features_name: test_feat_kinetics
+    features_name: feature
   Event: # not neeeded for the project
     rgb4e: 6
 
 # these are the action recognition models for each modality
 models:
   RGB:
+    training: True
     model: TA3N
     normalize: False
     kwargs: {}
@@ -54,16 +55,17 @@ models:
     dropout: 0.5
     sgd_momentum: 0.9
     weight_decay: 1e-7
-    aggregation_strategy: TemporalPooling
-    num_clips: 5 # number of relations in temrelations
+    aggregation_strategy: TemporalRelation
+    train_clips: 5 # number of relations in temrelations
     val_segments: 5
-    modules: []
+    modules: ['gsd', 'gtd', 'gy', 'grd', 'ta3n']
     beta0: 0.75
     beta1: 0.75
     beta2: 0.5
     gamma: 0.3
     delta: 0.75
-    attention: False
+    use_attention: False
     batch_normalization: True
     cop_type: None
     cop_samples: 3
+    num_bottleneck: 512

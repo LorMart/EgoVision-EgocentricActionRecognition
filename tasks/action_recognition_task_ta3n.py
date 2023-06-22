@@ -48,6 +48,7 @@ class ActionRecognition(tasks.Task, ABC):
         self.ly = utils.AverageMeter()
         
         self.num_clips = num_clips
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
         # Use the cross entropy loss as the default criterion for the classification task
         self.criterion = torch.nn.CrossEntropyLoss(weight=None, size_average=None, ignore_index=-100,
@@ -58,9 +59,7 @@ class ActionRecognition(tasks.Task, ABC):
         self.optimizer = dict()
         for m in self.modalities:
             optim_params[m] = filter(lambda parameter: parameter.requires_grad, self.task_models[m].parameters())
-            self.optimizer[m] = torch.optim.SGD(optim_params[m], model_args[m].lr,
-                                                weight_decay=model_args[m].weight_decay,
-                                                momentum=model_args[m].sgd_momentum)
+            self.optimizer[m] = torch.optim.SGD(optim_params[m], model_args[m].lr,weight_decay=model_args[m].weight_decay,momentum=model_args[m].sgd_momentum)
 
     def forward(self, source_data: Dict[str, torch.Tensor], target_data: Dict[str, torch.Tensor], **kwargs) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
         ### aggiungere se stiamo trainando o no
@@ -77,17 +76,18 @@ class ActionRecognition(tasks.Task, ABC):
         Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor]]
             output logits and features
         """
-        logits = {}
+        logits_source = {}
         features = {}
         for i_m, m in enumerate(self.modalities):
-            logits[m], feat = self.task_models[m](source_data[m], target_data[m], **kwargs)
+            logits_source[m], feat = self.task_models[m](source_data[m], target_data[m], self.model_args[m].train_clips, **kwargs)
+
             if i_m == 0:
                 for k in feat.keys():
                     features[k] = {}
             for k in feat.keys():
                 features[k][m] = feat[k]
 
-        return logits, features
+        return logits_source, features
 
     def compute_loss(self, logits: Dict[str, torch.Tensor], label: torch.Tensor, predictions: Dict[str,torch.Tensor], loss_weight: float=1.0) :
         """Fuse the logits from different modalities and compute the classification loss.
@@ -110,6 +110,7 @@ class ActionRecognition(tasks.Task, ABC):
 
             domain_label_all=torch.cat((domain_label_source, domain_label_target),0).to(self.device)
             pred_gsd_all=torch.cat((pred_gsd_source, pred_gsd_target),0)
+            print(pred_gsd_all.shape)
 
             gsd_loss = self.criterion(pred_gsd_all, domain_label_all)
             self.gsd_loss.update(torch.mean(gsd_loss) / (self.total_batch / self.batch_size), self.batch_size) 
@@ -127,10 +128,10 @@ class ActionRecognition(tasks.Task, ABC):
             gtd_loss = self.criterion(pred_gtd_all, domain_label_all)
             self.gtd_loss.update(torch.mean(gtd_loss) / (self.total_batch / self.batch_size), self.batch_size)
         
-        if 'gy' in self.model_args['RGB'].blocks:
-            pred_clf_all = torch.cat((logits, predictions['pred_clf_target']))
-            lae_loss = self.attentive_entropy(pred_clf_all, pred_gtd_all)
-            self.lae_loss.update(lae_loss/(self.total_batch / self.batch_size), self.batch_size)
+            if 'ta3n' in self.model_args['RGB'].modules:
+                pred_clf_all = torch.cat((logits, predictions['pred_clf_target']))
+                lae = self.attentive_entropy(pred_clf_all, pred_gtd_all)
+                self.lae.update(lae/(self.total_batch / self.batch_size), self.batch_size)
         
         if 'grd' in self.model_args['RGB'].modules and self.model_args['RGB'].aggregation_strategy == 'TemporalRelation':
             grd_loss = []
@@ -148,6 +149,18 @@ class ActionRecognition(tasks.Task, ABC):
         
         self.ly.update(torch.mean(self.criterion(logits, label)) / (self.total_batch / self.batch_size), self.batch_size)
         
+    def attentive_entropy(self, pred, pred_domain):
+        softmax = torch.nn.Softmax(dim=1)
+        logsoftmax = torch.nn.LogSoftmax(dim=1)
+
+        # attention weight
+        entropy = torch.sum(-softmax(pred_domain) * logsoftmax(pred_domain), 1)
+        weights = 1 + entropy
+
+        # attentive entropy
+        loss = torch.mean(weights * torch.sum(-softmax(pred) * logsoftmax(pred), 1))
+        
+        return loss
 
     def compute_accuracy(self, logits: Dict[str, torch.Tensor], label: torch.Tensor):
         """Fuse the logits from different modalities and compute the classification accuracy.

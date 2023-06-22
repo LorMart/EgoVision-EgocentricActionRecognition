@@ -185,14 +185,14 @@ def train(action_classifier, train_loader_source, train_loader_target, val_loade
 
         if data_source is None or data_target is None :
             raise UserWarning('train_classifier: Cannot be None type')
-        logits, tmp = action_classifier.forward(data_source, data_target)
+        logits_source, feat = action_classifier.forward(data_source, data_target) #logit_target non serve(no classificatione filae sul target)
 
         features = {}
-        for k, v in tmp.items():
+        for k, v in feat.items():
             # features[k] = torch.mean(v.values())
             features[k] = v['RGB']
         
-        logits = logits['RGB']
+        logits = logits_source['RGB']
 
         action_classifier.compute_loss(logits, source_label, features)
         action_classifier.backward(retain_graph=False)
