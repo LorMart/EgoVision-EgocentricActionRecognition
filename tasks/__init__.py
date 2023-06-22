@@ -1,2 +1,3 @@
 from tasks.Task import Task
 from tasks.action_recognition_task import ActionRecognition
+from tasks.action_recognition_task_ta3n import ActionRecognition
