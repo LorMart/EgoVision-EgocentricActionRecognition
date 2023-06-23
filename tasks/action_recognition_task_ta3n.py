@@ -110,7 +110,6 @@ class ActionRecognition(tasks.Task, ABC):
 
             domain_label_all=torch.cat((domain_label_source, domain_label_target),0).to(self.device)
             pred_gsd_all=torch.cat((pred_gsd_source, pred_gsd_target),0)
-            print(pred_gsd_all.shape)
 
             gsd_loss = self.criterion(pred_gsd_all, domain_label_all)
             self.gsd_loss.update(torch.mean(gsd_loss) / (self.total_batch / self.batch_size), self.batch_size) 
@@ -132,10 +131,10 @@ class ActionRecognition(tasks.Task, ABC):
                 pred_clf_all = torch.cat((logits, predictions['pred_clf_target']))
                 lae = self.attentive_entropy(pred_clf_all, pred_gtd_all)
                 self.lae.update(lae/(self.total_batch / self.batch_size), self.batch_size)
-        
+       
         if 'grd' in self.model_args['RGB'].modules and self.model_args['RGB'].aggregation_strategy == 'TemporalRelation':
             grd_loss = []
-            for pred_grd_source_single_scale, pred_grd_target_single_scale in zip(predictions['pred_grd_source'].values(), predictions['pred_grd_target'].values()):
+            for pred_grd_source_single_scale, pred_grd_target_single_scale in zip(predictions['pred_grd_source'], predictions['pred_grd_target']):
                 domain_label_source = torch.zeros(pred_grd_source_single_scale.shape[0], dtype=torch.int64)
                 domain_label_target = torch.ones(pred_grd_target_single_scale.shape[0], dtype=torch.int64)
 
@@ -146,7 +145,7 @@ class ActionRecognition(tasks.Task, ABC):
                 grd_loss.append(grd_loss_single_scale)
             grd_loss = sum(grd_loss)/(len(grd_loss))
             self.grd_loss.update(torch.mean(grd_loss) / (self.total_batch / self.batch_size), self.batch_size)
-        
+       
         self.ly.update(torch.mean(self.criterion(logits, label)) / (self.total_batch / self.batch_size), self.batch_size)
         
     def attentive_entropy(self, pred, pred_domain):
@@ -172,8 +171,8 @@ class ActionRecognition(tasks.Task, ABC):
         label : torch.Tensor
             ground truth
         """
-        fused_logits = reduce(lambda x, y: x + y, logits.values())
-        self.accuracy.update(fused_logits, label)
+        
+        self.accuracy.update(logits, label)
 
     def wandb_log(self):
         """Log the current loss and top1/top5 accuracies to wandb."""
@@ -202,7 +201,7 @@ class ActionRecognition(tasks.Task, ABC):
 
         This method must be called after each optimization step.
         """
-        self.loss.reset()
+        self.ly.reset()
 
     def reset_acc(self):
         """Reset the classification accuracy."""
@@ -228,5 +227,21 @@ class ActionRecognition(tasks.Task, ABC):
         ----------
         retain_graph : bool, optional
             whether the computational graph should be retained, by default False
+        
+        self.gsd_loss 
+        self.gtd_loss 
+        self.grd_loss
+        self.lae 
+        self.ly 
         """
-        self.loss.val.backward(retain_graph=retain_graph)
+        final_loss = 0
+        if 'gsd' in self.model_args['RGB'].modules:
+            final_loss += self.gsd_loss.val
+        if 'gtd' in self.model_args['RGB'].modules:
+            final_loss += self.gtd_loss.val
+        if 'grd' in self.model_args['RGB'].modules and self.model_args['RGB'].aggregation_strategy == 'TemRelation':
+            final_loss += self.grd_loss.val
+        final_loss += self.ly.val   
+        
+
+        final_loss.backward(retain_graph=retain_graph) ### potrebbe essere

@@ -23,6 +23,7 @@ class TA3N(nn.Module):
         self.model_config = model_config
         self.input_feature_dim = input_feature_dim
         self.train_clips = model_config.train_clips
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.aggregation_strategy = model_config.aggregation_strategy
         if model_config.aggregation_strategy == 'TemporalRelation':
             self.n_relations = self.train_clips-1
@@ -31,7 +32,7 @@ class TA3N(nn.Module):
         self.gsf = self.FCL(input_feature_dim=self.input_feature_dim, output_feature_dim=self.input_feature_dim, dropout=model_config.dropout)
 
         """Domain Classifier ---> Gsd"""
-        self.gsd = self.DomainClassifier(input_feature_dim=self.input_feature_dim, beta = self.model_config.beta0 , dropout=model_config.dropout)
+        self.gsd = self.DomainClassifier(input_feature_dim=self.input_feature_dim, beta = self.model_config.beta0 , dropout=model_config.dropout).to(self.device)
 
         """Temporal Module ---> TemporalPooling/TemporalRelation"""
         self.temporal_module = self.TemporalModule(self.input_feature_dim,self.train_clips, self.aggregation_strategy, self.model_config)
@@ -41,9 +42,9 @@ class TA3N(nn.Module):
         self.grd = []
         if model_config.aggregation_strategy == 'TemporalRelation':
             for i in range(self.n_relations):
-                self.grd.append(self.DomainClassifier(self.model_config.num_bottleneck, beta = self.model_config.beta1, dropout = model_config.dropout)) #one for each relation
+                self.grd.append(self.DomainClassifier(self.model_config.num_bottleneck, beta = self.model_config.beta1, dropout = model_config.dropout).to(self.device)) #one for each relation
 
-        self.gtd = self.DomainClassifier(input_feature_dim=self.input_feature_dim, beta = self.model_config.beta0, dropout=model_config.dropout)
+        self.gtd = self.DomainClassifier(input_feature_dim=self.input_feature_dim, beta = self.model_config.beta0, dropout=model_config.dropout).to(self.device)
 
         """Final Classifier"""
         self.gy = self.FCL(input_feature_dim=self.input_feature_dim, output_feature_dim=self.num_classes, dropout=model_config.dropout)
@@ -82,9 +83,11 @@ class TA3N(nn.Module):
 
         """Domain Classifiers ---> Grd"""
         if self.model_config.aggregation_strategy == 'TemporalRelation':
+            pred_grd_source = []
+            pred_grd_target = []
             for i in range(self.n_relations):
-                pred_grd_source = self.grd[i](dict_feat_trn_source[i])
-                pred_grd_target = self.grd[i](dict_feat_trn_target[i]) if training else None
+                pred_grd_source.append(self.grd[i](dict_feat_trn_source[i]))
+                pred_grd_target.append(self.grd[i](dict_feat_trn_target[i]) if training else None)
 
         """??? implement attention ???""" ##manca implementazione
         if self.model_config.use_attention:
@@ -116,6 +119,7 @@ class TA3N(nn.Module):
             super(TA3N.TemporalModule, self).__init__()
             self.input_feature_dim = input_feature_dim
             self.strategy = strategy
+            self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
             self.model_config = model_config
             self.num_bottleneck = 512
             self.train_segments = 5
@@ -188,7 +192,7 @@ class TA3N(nn.Module):
 
         def forward(self, x):
             x = TA3N.GradReverse.apply(x, self.beta)
-            x = self.linear(x)
+            x = self.linear(x)         
             x = self.relu(x)
             x = self.dropout(x)
             x = self.hidden(x)

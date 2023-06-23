@@ -45,7 +45,7 @@ def main():
     # this will output the domain conversion (D1 -> 8, et cetera) and the label list
     num_classes, valid_labels, source_domain, target_domain = utils.utils.get_domains_and_labels(args)
     # device where everything is run
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu") 
 
     # these dictionaries are for more multi-modal training/testing, each key is a modality used
     models = {}
@@ -191,18 +191,16 @@ def train(action_classifier, train_loader_source, train_loader_target, val_loade
         for k, v in feat.items():
             # features[k] = torch.mean(v.values())
             features[k] = v['RGB']
-        
         logits = logits_source['RGB']
-
         action_classifier.compute_loss(logits, source_label, features)
         action_classifier.backward(retain_graph=False)
         action_classifier.compute_accuracy(logits, source_label)
-        action_classifier.wandb_log()
+        #action_classifier.wandb_log()
 
         # update weights and zero gradients if total_batch samples are passed
         if gradient_accumulation_step:
             logger.info("[%d/%d]\tlast Verb loss: %.4f\tMean verb loss: %.4f\tAcc@1: %.2f%%\tAccMean@1: %.2f%%" %
-                        (real_iter, args.train.num_iter, action_classifier.classification_loss.val, action_classifier.classification_loss.avg,
+                        (real_iter, args.train.num_iter, action_classifier.ly.val, action_classifier.ly.avg,
                          action_classifier.accuracy.val[1], action_classifier.accuracy.avg[1]))
 
             action_classifier.check_grad()
@@ -253,6 +251,7 @@ def validate(model, val_loader, device, it, num_classes):
     logits = {}
 
     # Iterate over the models
+    
     with torch.no_grad():
         for i_val, (data, label) in enumerate(val_loader):
             label = label.to(device)
@@ -265,7 +264,7 @@ def validate(model, val_loader, device, it, num_classes):
             for m in modalities:
                 data[m] = data[m].to(device)
 
-            output, _ = model(data, is_train=False)
+            output, _ = model(data)
             for m in modalities:
                 logits[m] = output[m]
 
