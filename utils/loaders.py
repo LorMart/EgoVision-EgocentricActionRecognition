@@ -80,7 +80,7 @@ class EpicKitchensDataset(data.Dataset, ABC):
             centroid_indices = np.linspace(0, vector_length - 16, num_vectors, dtype=int)
             concatenated_vector = np.concatenate([np.arange(i, i+16) for i in centroid_indices])
 
-    return concatenated_vector
+        return concatenated_vector
 
     def _get_val_indices(self, record, modality):
         num_vectors = 5  # Number of vectors to extract
@@ -96,7 +96,7 @@ class EpicKitchensDataset(data.Dataset, ABC):
             centroid_indices = np.linspace(0, vector_length - 16, num_vectors, dtype=int)
             concatenated_vector = np.concatenate([np.arange(i, i+16) for i in centroid_indices])
 
-    return concatenated_vector
+        return concatenated_vector
 
     def __getitem__(self, index):
 
