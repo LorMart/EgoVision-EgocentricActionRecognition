@@ -62,8 +62,11 @@ models:
     beta0: 0.75
     beta1: 0.75
     beta2: 0.5
-    gamma: 0.3
-    delta: 0.75
+    gamma: 1
+    delta: 1
+    lambda_s: 1
+    lambda_t: 1
+    lambda_r: 1
     use_attention: False
     batch_normalization: True
     cop_type: None

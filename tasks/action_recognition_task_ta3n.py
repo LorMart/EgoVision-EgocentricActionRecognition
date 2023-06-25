@@ -61,7 +61,7 @@ class ActionRecognition(tasks.Task, ABC):
             optim_params[m] = filter(lambda parameter: parameter.requires_grad, self.task_models[m].parameters())
             self.optimizer[m] = torch.optim.SGD(optim_params[m], model_args[m].lr,weight_decay=model_args[m].weight_decay,momentum=model_args[m].sgd_momentum)
 
-    def forward(self, source_data: Dict[str, torch.Tensor], target_data: Dict[str, torch.Tensor], **kwargs) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
+    def forward(self, source_data: Dict[str, torch.Tensor], target_data: Dict[str, torch.Tensor], training,  **kwargs) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
         ### aggiungere se stiamo trainando o no
         
         """Forward step of the task
@@ -79,7 +79,7 @@ class ActionRecognition(tasks.Task, ABC):
         logits_source = {}
         features = {}
         for i_m, m in enumerate(self.modalities):
-            logits_source[m], feat = self.task_models[m](source_data[m], target_data[m], self.model_args[m].train_clips, self.model_args[m].modules, **kwargs)
+            logits_source[m], feat = self.task_models[m](source_data[m], target_data[m], self.model_args[m].train_clips, training, **kwargs)
 
             if i_m == 0:
                 for k in feat.keys():
@@ -127,7 +127,7 @@ class ActionRecognition(tasks.Task, ABC):
             gtd_loss = self.criterion(pred_gtd_all, domain_label_all)
             self.gtd_loss.update(torch.mean(gtd_loss) / (self.total_batch / self.batch_size), self.batch_size)
         
-            if 'ta3n' in self.model_args['RGB'].modules:
+            if self.model_args['RGB'].use_attention == True:
                 pred_clf_all = torch.cat((logits, predictions['pred_clf_target']))
                 lae = self.attentive_entropy(pred_clf_all, pred_gtd_all)
                 self.lae.update(lae/(self.total_batch / self.batch_size), self.batch_size)
@@ -240,11 +240,13 @@ class ActionRecognition(tasks.Task, ABC):
         """
         final_loss = 0
         if 'gsd' in self.model_args['RGB'].modules:
-            final_loss += self.gsd_loss.val
+            final_loss += self.gsd_loss.val * model_args['RGB'].lambda_s
         if 'gtd' in self.model_args['RGB'].modules:
-            final_loss += self.gtd_loss.val
+            final_loss += self.gtd_loss.val * model_args['RGB'].lambda_t
+			if model_args['RGB'].use_attention == True:
+				final_loss += self.lae.val * model_args['RGB'].gamma
         if 'grd' in self.model_args['RGB'].modules and self.model_args['RGB'].aggregation_strategy == 'TemRelation':
-            final_loss += self.grd_loss.val
+            final_loss += self.grd_loss.val * model_args['RGB'].lambda_r
         final_loss += self.ly.val   
         
 

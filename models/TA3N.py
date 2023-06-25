@@ -7,7 +7,7 @@ from models import TRNmodule
 class TA3N(nn.Module):
     "Model architecture explained in the paper Temporal Attentive Alignment for Large-Scale Video Domain Adaptation"
 
-    def __init__(self,  input_feature_dim=1024, num_classes=8, model_config=None, name='ta3n', model_modules_args):
+    def __init__(self,  input_feature_dim=1024, num_classes=8, model_config=None, name='ta3n'):
         """Iniziales TA3N model instance
         Args:
               num_classes ---> output in the logit layer of the predictor
@@ -23,7 +23,7 @@ class TA3N(nn.Module):
         self.model_config = model_config
         self.input_feature_dim = input_feature_dim
         self.train_clips = model_config.train_clips
-        self.model_modules_args = model_modules_args
+        self.model_modules_args = self.model_config.modules
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.aggregation_strategy = model_config.aggregation_strategy
 
@@ -67,16 +67,16 @@ class TA3N(nn.Module):
     def get_attn_feat_relation(self, feat_fc, pred_domain, num_segments):
         weights_attn = self.get_trans_attn(pred_domain)
 
-        weights_attn = weights_attn.view(-1, num_segments-1, 1).repeat(1,1,feat_fc.size()[-1]) # reshape & repeat weights (e.g. 16 x 4 x 256)
-        # raise UserWarning(f'Dimensions are weights_attn={weights_attn.shape}, feat_fc={feat_fc.shape}')
+        weights_attn = weights_attn.view(-1, num_segments-1, 1).repeat(1,1,feat_fc.size()[-1]) 
+
         feat_fc_attn = (weights_attn+1) * feat_fc
 
-        return feat_fc_attn, weights_attn[:,:,0]
+        return feat_fc_attn
 
-    def forward(self, source_data, target_data, train_clips):
 
-        if self.model_config.training == True:
-            training = True
+    def forward(self, source_data, target_data, train_clips, training):
+
+
         """Spacial Module ---> Gsf"""
         source_data = self.gsf(source_data)
         target_data = self.gsf(target_data) if training else None
@@ -85,7 +85,10 @@ class TA3N(nn.Module):
             """Domain Classifier ---> Gsd"""
             pred_gsd_source = self.gsd(source_data.view((-1,1024)))
             pred_gsd_target = self.gsd(target_data.view((-1,1024))) if training else None
-
+		else :
+			pred_gsd_source = None
+            pred_gsd_target = None
+			
 
         """Temporal Module ---> TemporalPooling/TemporalRelation"""
         source_data, dict_feat_trn_source = self.temporal_module(source_data, train_clips)
@@ -98,13 +101,27 @@ class TA3N(nn.Module):
             for i in range(self.n_relations):
                 pred_grd_source.append(self.grd[i](dict_feat_trn_source[i]))
                 pred_grd_target.append(self.grd[i](dict_feat_trn_target[i]) if training else None)
-
-        """??? implement attention ???""" ##manca implementazione
+		else:
+			pred_grd_source = None
+            pred_grd_target = None
+        
         if self.model_config.use_attention:
+			
+            tensors = ()
+            for pred in pred_grd_source:
+                tensors = tensors + (pred.view(-1,1,2),)
 
+            pred_fc_domain_relation_video_source = torch.cat(tensors,1).view(-1,2)
+            source = self.get_attn_feat_relation(source, pred_fc_domain_relation_video_source, num_segments)
 
+            if training:
+                tensors = ()
+                for pred in predictions_grd_target:
+                    tensors = tensors + (pred.view(-1,1,2),)
 
-            pass
+                pred_fc_domain_relation_video_target = torch.cat(tensors,1).view(-1,2)
+                target = self.get_attn_feat_relation(target, pred_fc_domain_relation_video_target, num_segments)
+
 
         if self.model_config.aggregation_strategy == 'TemporalRelation':
             source_data = torch.sum(source_data, 1)
@@ -114,15 +131,18 @@ class TA3N(nn.Module):
             """Domain Classifiers ---> Gtd"""
             pred_gtd_source = self.gtd(source_data)
             pred_gtd_target = self.gtd(target_data) if training else None
-
+		else:
+			pred_gtd_source = None
+            pred_gtd_target = None
+			
         """Final Prediction"""
         final_logits_source = self.gy(source_data)
         final_logits_target = self.gy(target_data) if training else None
 
         return final_logits_source , { "pred_gsd_source": pred_gsd_source,"pred_gsd_target": pred_gsd_target, \
-                                                                    "pred_gtd_source": pred_gtd_source,"pred_gtd_target": pred_gtd_target, \
-                                                                    "pred_grd_source": pred_grd_source,"pred_grd_target": pred_grd_target,
-                                                                    "pred_clf_source": final_logits_source,"pred_clf_target": final_logits_target}
+                                       "pred_gtd_source": pred_gtd_source,"pred_gtd_target": pred_gtd_target, \
+                                       "pred_grd_source": pred_grd_source,"pred_grd_target": pred_grd_target,
+                                       "pred_clf_source": final_logits_source,"pred_clf_target": final_logits_target}
     
     class TemporalModule(nn.Module):
         """Implementation of 2 different strategies to aggregate the frame features"""

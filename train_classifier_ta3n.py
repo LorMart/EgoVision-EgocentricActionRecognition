@@ -88,22 +88,6 @@ def main():
                                                  num_workers=args.dataset.workers, pin_memory=True, drop_last=False)
 
         train(action_classifier, train_loader_source, train_loader_target, val_loader, device, num_classes)
-      
-        source_data, source_label = next(iter(train_loader_source))
-        source_data = source_data['RGB'].to(device)
-        target_data, target_label = next(iter(train_loader_target))
-        target_data = target_data['RGB'].to(device)
-        data_source= {'RGB': source_data}
-        data_target= {'RGB': target_data}
-        logits, tmp = action_classifier.forward(data_source, data_target)
-        features = {}
-        for k, v in tmp.items():
-            # features[k] = torch.mean(v.values())
-            features[k] = v['RGB']
-        feats_gy_source = features['feats_gy_source']
-        feats_gy_target = features['feats_gy_target']
-        torch.save(feats_gy_source, f"feats_source_all_{args.dataset.shift}.pt")
-        torch.save(feats_gy_target, f"feats_target_all_{args.dataset.shift}.pt")
 
 
     elif args.action == "validate":
@@ -116,7 +100,6 @@ def main():
                                                  num_workers=args.dataset.workers, pin_memory=True, drop_last=False)
 
         validate(action_classifier, val_loader, device, action_classifier.current_iter, num_classes)
-    wandb.finish()
 
 
 def train(action_classifier, train_loader_source, train_loader_target, val_loader, device, num_classes):
@@ -131,7 +114,7 @@ def train(action_classifier, train_loader_source, train_loader_target, val_loade
     global training_iterations, modalities
 
     data_loader_source = iter(train_loader_source)
-    data_loader_target = iter(train_loader_source)  # -------------------------------------------NON DOVREBBE ESSERE TARGET???????
+    data_loader_target = iter(train_loader_target)  # -------------------------------------------#
     action_classifier.train(True) # ?
     action_classifier.zero_grad() # ?
     iteration = action_classifier.current_iter * (args.total_batch // args.batch_size)
@@ -181,20 +164,19 @@ def train(action_classifier, train_loader_source, train_loader_target, val_loade
             data_source[m] = source_data[m].to(device)
             data_target[m] = target_data[m].to(device)
 
-
+		training = True
+		
         if data_source is None or data_target is None :
             raise UserWarning('train_classifier: Cannot be None type')
-        logits_source, feat = action_classifier.forward(data_source, data_target) #logit_target non serve(no classificatione filae sul target)
+        logits_source, feat = action_classifier.forward(data_source, data_target, training) 
 
         features = {}
         for k, v in feat.items():
-            # features[k] = torch.mean(v.values())
             features[k] = v['RGB']
         logits = logits_source['RGB']
         action_classifier.compute_loss(logits, source_label, features)
         action_classifier.backward(retain_graph=False)
         action_classifier.compute_accuracy(logits, source_label)
-        #action_classifier.wandb_log()
 
         # update weights and zero gradients if total_batch samples are passed
         if gradient_accumulation_step:
@@ -219,20 +201,9 @@ def train(action_classifier, train_loader_source, train_loader_target, val_loade
                 action_classifier.best_iter = real_iter
                 action_classifier.best_iter_score = val_metrics['top1']
                 wandb.run.summary["best_accuracy"] = val_metrics['top1']
-            wandb.log(val_metrics)
 
             action_classifier.save_model(real_iter, val_metrics['top1'], prefix=None)
             action_classifier.train(True)
-    feats_gy_source = features['feats_gy_source']
-    feats_gy_target = features['feats_gy_target']
-    torch.save(feats_gy_source, f"feats_source_{args.dataset.shift}.pt")
-    torch.save(feats_gy_target, f"feats_target_{args.dataset.shift}.pt")
-    #src_tsne = TSNE(n_components=2).fit_transform(feats_gy_source)
-    #trg_tsne = TSNE(n_components=2).fit_transform(feats_gy_target)
-    #plt.scatter(src_tsne[:,0], src_tsne[:,1], c='red')
-    #plt.scatter(trg_tsne[:,0],trg_tsne[:,1], c='blue')
-    #plt.savefig(f"tsne_{args.dataset.shift}.eps", format="eps")
-
 
 def validate(model, val_loader, device, it, num_classes):
     """
@@ -250,7 +221,8 @@ def validate(model, val_loader, device, it, num_classes):
     logits = {}
 
     # Iterate over the models
-    
+    training = False
+	
     with torch.no_grad():
         for i_val, (data, label) in enumerate(val_loader):
             label = label.to(device)
@@ -263,7 +235,7 @@ def validate(model, val_loader, device, it, num_classes):
             for m in modalities:
                 data[m] = data[m].to(device)
 
-            output, _ = model(data)
+            output, _ = model(data, None, training)
             for m in modalities:
                 logits[m] = output[m]
 
