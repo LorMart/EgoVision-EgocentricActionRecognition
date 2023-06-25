@@ -79,7 +79,7 @@ class ActionRecognition(tasks.Task, ABC):
         logits_source = {}
         features = {}
         for i_m, m in enumerate(self.modalities):
-            logits_source[m], feat = self.task_models[m](source_data[m], target_data[m], self.model_args[m].train_clips, **kwargs)
+            logits_source[m], feat = self.task_models[m](source_data[m], target_data[m], self.model_args[m].train_clips, self.model_args[m].modules, **kwargs)
 
             if i_m == 0:
                 for k in feat.keys():
@@ -201,6 +201,10 @@ class ActionRecognition(tasks.Task, ABC):
 
         This method must be called after each optimization step.
         """
+        self.gsd_loss.reset()
+        self.gtd_loss.reset()
+        self.lae.reset()
+        self.grd_loss.reset()
         self.ly.reset()
 
     def reset_acc(self):
@@ -244,4 +248,4 @@ class ActionRecognition(tasks.Task, ABC):
         final_loss += self.ly.val   
         
 
-        final_loss.backward(retain_graph=retain_graph) ### potrebbe essere
+        final_loss.backward(retain_graph=retain_graph) 

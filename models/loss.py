@@ -68,8 +68,8 @@ def mmd_rbf(source, target, kernel_mul=2.0, kernel_num=5, fix_sigma=None, ver=2)
         for i in range(batch_size):
             s1, s2 = i, (i + 1) % batch_size
             t1, t2 = s1 + batch_size, s2 + batch_size
-            loss += kernels[s1, s2] + kernels[t1, t2]
-            loss -= kernels[s1, t2] + kernels[s2, t1]
+            loss += kernels[s1, s2].deatach() + kernels[t1, t2].deatach()
+            loss -= kernels[s1, t2].deatach() + kernels[s2, t1].deatach()
         loss = loss.abs_() / float(batch_size)
     elif ver==2:
         XX = kernels[:batch_size, :batch_size]

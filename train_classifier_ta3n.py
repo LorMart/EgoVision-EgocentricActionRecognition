@@ -33,7 +33,6 @@ def init_operations():
         logger.debug('Using only these GPUs: {}'.format(args.gpus))
         os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpus)
 
-    # wanbd logging configuration
 
 def main():
     global training_iterations, modalities
@@ -55,7 +54,7 @@ def main():
         # notice that here, the first parameter passed is the input dimension
         # In our case it represents the feature dimensionality which is equivalent to 1024 for I3D
         
-        models[m] = getattr(model_list, args.models[m].model)(args.in_feat_dim, num_classes, args.models[m], **args.models[m].kwargs)
+        models[m] = getattr(model_list, args.models[m].model)(args.input_feat_dim, num_classes, args.models[m], **args.models[m].kwargs)
 
     # the models are wrapped into the ActionRecognition task which manages all the training steps
     action_classifier = tasks.ActionRecognition("action-classifier", models, args.batch_size,
@@ -132,9 +131,9 @@ def train(action_classifier, train_loader_source, train_loader_target, val_loade
     global training_iterations, modalities
 
     data_loader_source = iter(train_loader_source)
-    data_loader_target = iter(train_loader_source)
-    action_classifier.train(True)
-    action_classifier.zero_grad()
+    data_loader_target = iter(train_loader_source)  # -------------------------------------------NON DOVREBBE ESSERE TARGET???????
+    action_classifier.train(True) # ?
+    action_classifier.zero_grad() # ?
     iteration = action_classifier.current_iter * (args.total_batch // args.batch_size)
 
     # the batch size should be total_batch but batch accumulation is done with batch size = batch_size.

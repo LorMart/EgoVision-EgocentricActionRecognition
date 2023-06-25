@@ -7,7 +7,7 @@ from models import TRNmodule
 class TA3N(nn.Module):
     "Model architecture explained in the paper Temporal Attentive Alignment for Large-Scale Video Domain Adaptation"
 
-    def __init__(self,  input_feature_dim=1024, num_classes=8, model_config=None, name='ta3n'):
+    def __init__(self,  input_feature_dim=1024, num_classes=8, model_config=None, name='ta3n', model_modules_args):
         """Iniziales TA3N model instance
         Args:
               num_classes ---> output in the logit layer of the predictor
@@ -23,30 +23,38 @@ class TA3N(nn.Module):
         self.model_config = model_config
         self.input_feature_dim = input_feature_dim
         self.train_clips = model_config.train_clips
+        self.model_modules_args = model_modules_args
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.aggregation_strategy = model_config.aggregation_strategy
+
         if model_config.aggregation_strategy == 'TemporalRelation':
             self.n_relations = self.train_clips-1
 
-        """Spacial Module ---> Gsf"""
+            """Spacial Module ---> Gsf"""
         self.gsf = self.FCL(input_feature_dim=self.input_feature_dim, output_feature_dim=self.input_feature_dim, dropout=model_config.dropout)
 
-        """Domain Classifier ---> Gsd"""
-        self.gsd = self.DomainClassifier(input_feature_dim=self.input_feature_dim, beta = self.model_config.beta0 , dropout=model_config.dropout).to(self.device)
+        if 'gsd' in self.model_modules_args:
+            """Domain Classifier ---> Gsd"""
+            self.gsd = self.DomainClassifier(input_feature_dim=self.input_feature_dim, beta = self.model_config.beta0 , dropout=model_config.dropout).to(self.device)
 
-        """Temporal Module ---> TemporalPooling/TemporalRelation"""
+  
+            """Temporal Module ---> TemporalPooling/TemporalRelation"""
         self.temporal_module = self.TemporalModule(self.input_feature_dim,self.train_clips, self.aggregation_strategy, self.model_config)
         self.input_feature_dim = self.temporal_module.output_feature_dim  #input_feature_dim diventa num_bottlenecks(TRN) oppure output_feature_dim(TemporalPooling)
         print(self.temporal_module.output_feature_dim)
+        
         """Domain Classifiers ---> Gtd & Grd"""
-        self.grd = []
-        if model_config.aggregation_strategy == 'TemporalRelation':
-            for i in range(self.n_relations):
-                self.grd.append(self.DomainClassifier(self.model_config.num_bottleneck, beta = self.model_config.beta1, dropout = model_config.dropout).to(self.device)) #one for each relation
-
-        self.gtd = self.DomainClassifier(input_feature_dim=self.input_feature_dim, beta = self.model_config.beta0, dropout=model_config.dropout).to(self.device)
+        if 'grd' in self.model_modules_args and self.model_args['RGB'].aggregation_strategy == 'TemporalRelation':
+            self.grd = []
+            if model_config.aggregation_strategy == 'TemporalRelation':
+                for i in range(self.n_relations):
+                    self.grd.append(self.DomainClassifier(self.model_config.num_bottleneck, beta = self.model_config.beta1, dropout = model_config.dropout).to(self.device)) #one for each relation
+        
+        if 'gtd' in self.model_modules_args:
+            self.gtd = self.DomainClassifier(input_feature_dim=self.input_feature_dim, beta = self.model_config.beta0, dropout=model_config.dropout).to(self.device)
 
         """Final Classifier"""
+
         self.gy = self.FCL(input_feature_dim=self.input_feature_dim, output_feature_dim=self.num_classes, dropout=model_config.dropout)
 
     def get_trans_attn(self, pred_domain):
@@ -73,16 +81,18 @@ class TA3N(nn.Module):
         source_data = self.gsf(source_data)
         target_data = self.gsf(target_data) if training else None
 
-        """Domain Classifier ---> Gsd"""
-        pred_gsd_source = self.gsd(source_data.view((-1,1024)))
-        pred_gsd_target = self.gsd(target_data.view((-1,1024))) if training else None
+        if 'gsd' in self.model_modules_args:
+            """Domain Classifier ---> Gsd"""
+            pred_gsd_source = self.gsd(source_data.view((-1,1024)))
+            pred_gsd_target = self.gsd(target_data.view((-1,1024))) if training else None
+
 
         """Temporal Module ---> TemporalPooling/TemporalRelation"""
         source_data, dict_feat_trn_source = self.temporal_module(source_data, train_clips)
-        target_data, dict_feat_trn_target = self.temporal_module(target_data, train_clips) if training else None
+        target_data, dict_feat_trn_target = self.temporal_module(target_data, train_clips) if training else (None, None)
 
         """Domain Classifiers ---> Grd"""
-        if self.model_config.aggregation_strategy == 'TemporalRelation':
+        if 'grd' in self.model_modules_args and self.model_args['RGB'].aggregation_strategy == 'TemporalRelation':
             pred_grd_source = []
             pred_grd_target = []
             for i in range(self.n_relations):
@@ -100,13 +110,14 @@ class TA3N(nn.Module):
             source_data = torch.sum(source_data, 1)
             target_data = torch.sum(target_data, 1) if training else None
 
-        """Domain Classifiers ---> Gtd"""
-        pred_gtd_source = self.gtd(source_data)
-        pred_gtd_target = self.gtd(target_data) if training else None
+        if 'gtd' in self.model_modules_args:
+            """Domain Classifiers ---> Gtd"""
+            pred_gtd_source = self.gtd(source_data)
+            pred_gtd_target = self.gtd(target_data) if training else None
 
         """Final Prediction"""
         final_logits_source = self.gy(source_data)
-        final_logits_target = self.gy(target_data)
+        final_logits_target = self.gy(target_data) if training else None
 
         return final_logits_source , { "pred_gsd_source": pred_gsd_source,"pred_gsd_target": pred_gsd_target, \
                                                                     "pred_gtd_source": pred_gtd_source,"pred_gtd_target": pred_gtd_target, \
