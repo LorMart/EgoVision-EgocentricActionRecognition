@@ -44,7 +44,7 @@ class TA3N(nn.Module):
         print(self.temporal_module.output_feature_dim)
         
         """Domain Classifiers ---> Gtd & Grd"""
-        if 'grd' in self.model_modules_args and self.model_args['RGB'].aggregation_strategy == 'TemporalRelation':
+        if 'grd' in self.model_modules_args and self.model_config.aggregation_strategy == 'TemporalRelation':
             self.grd = []
             if model_config.aggregation_strategy == 'TemporalRelation':
                 for i in range(self.n_relations):
@@ -95,7 +95,7 @@ class TA3N(nn.Module):
         target_data, dict_feat_trn_target = self.temporal_module(target_data, train_clips) if training else (None, None)
 
         """Domain Classifiers ---> Grd"""
-        if 'grd' in self.model_modules_args and self.model_args['RGB'].aggregation_strategy == 'TemporalRelation':
+        if 'grd' in self.model_modules_args and self.model_config.aggregation_strategy == 'TemporalRelation':
             pred_grd_source = []
             pred_grd_target = []
             for i in range(self.n_relations):
