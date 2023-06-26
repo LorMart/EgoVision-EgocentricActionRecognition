@@ -85,8 +85,8 @@ class TA3N(nn.Module):
             """Domain Classifier ---> Gsd"""
             pred_gsd_source = self.gsd(source_data.view((-1,1024)))
             pred_gsd_target = self.gsd(target_data.view((-1,1024))) if training else None
-		else :
-			pred_gsd_source = None
+        else :
+            pred_gsd_source = None
             pred_gsd_target = None
 			
 
@@ -100,9 +100,9 @@ class TA3N(nn.Module):
             pred_grd_target = []
             for i in range(self.n_relations):
                 pred_grd_source.append(self.grd[i](dict_feat_trn_source[i]))
-                pred_grd_target.append(self.grd[i](dict_feat_trn_target[i]) if training else None)
-		else:
-			pred_grd_source = None
+                pred_grd_target.append(self.grd[i](dict_feat_trn_target[i]) if training else None)   
+        else:
+            pred_grd_source = None
             pred_grd_target = None
         
         if self.model_config.use_attention:
@@ -112,15 +112,15 @@ class TA3N(nn.Module):
                 tensors = tensors + (pred.view(-1,1,2),)
 
             pred_fc_domain_relation_video_source = torch.cat(tensors,1).view(-1,2)
-            source = self.get_attn_feat_relation(source, pred_fc_domain_relation_video_source, num_segments)
+            source = self.get_attn_feat_relation(source, pred_fc_domain_relation_video_source, train_clips)
 
             if training:
                 tensors = ()
-                for pred in predictions_grd_target:
+                for pred in pred_grd_target:
                     tensors = tensors + (pred.view(-1,1,2),)
 
                 pred_fc_domain_relation_video_target = torch.cat(tensors,1).view(-1,2)
-                target = self.get_attn_feat_relation(target, pred_fc_domain_relation_video_target, num_segments)
+                target = self.get_attn_feat_relation(target, pred_fc_domain_relation_video_target, train_clips)
 
 
         if self.model_config.aggregation_strategy == 'TemporalRelation':
@@ -131,8 +131,8 @@ class TA3N(nn.Module):
             """Domain Classifiers ---> Gtd"""
             pred_gtd_source = self.gtd(source_data)
             pred_gtd_target = self.gtd(target_data) if training else None
-		else:
-			pred_gtd_source = None
+        else:
+            pred_gtd_source = None
             pred_gtd_target = None
 			
         """Final Prediction"""

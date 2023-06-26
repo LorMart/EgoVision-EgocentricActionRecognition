@@ -58,7 +58,7 @@ models:
     aggregation_strategy: TemporalRelation
     train_clips: 5 # number of relations in temrelations
     val_segments: 5
-    modules: ['gsd', 'gtd', 'gy', 'grd', 'ta3n']
+    modules: ['gsd', 'gtd', 'gy', 'grd']
     beta0: 0.75
     beta1: 0.75
     beta2: 0.5
@@ -68,7 +68,4 @@ models:
     lambda_t: 1
     lambda_r: 1
     use_attention: False
-    batch_normalization: True
-    cop_type: None
-    cop_samples: 3
     num_bottleneck: 512

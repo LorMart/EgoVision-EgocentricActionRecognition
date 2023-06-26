@@ -240,13 +240,13 @@ class ActionRecognition(tasks.Task, ABC):
         """
         final_loss = 0
         if 'gsd' in self.model_args['RGB'].modules:
-            final_loss += self.gsd_loss.val * model_args['RGB'].lambda_s
+            final_loss += self.gsd_loss.val * self.model_args['RGB'].lambda_s
         if 'gtd' in self.model_args['RGB'].modules:
-            final_loss += self.gtd_loss.val * model_args['RGB'].lambda_t
-			if model_args['RGB'].use_attention == True:
-				final_loss += self.lae.val * model_args['RGB'].gamma
+            final_loss += self.gtd_loss.val * self.model_args['RGB'].lambda_t
+            if self.model_args['RGB'].use_attention == True:
+                final_loss += self.lae.val * self.model_args['RGB'].gamma
         if 'grd' in self.model_args['RGB'].modules and self.model_args['RGB'].aggregation_strategy == 'TemRelation':
-            final_loss += self.grd_loss.val * model_args['RGB'].lambda_r
+            final_loss += self.grd_loss.val * self.model_args['RGB'].lambda_r
         final_loss += self.ly.val   
         
 

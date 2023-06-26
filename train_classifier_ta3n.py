@@ -163,8 +163,8 @@ def train(action_classifier, train_loader_source, train_loader_target, val_loade
         for m in modalities:
             data_source[m] = source_data[m].to(device)
             data_target[m] = target_data[m].to(device)
-
-		training = True
+        
+        training = True
 		
         if data_source is None or data_target is None :
             raise UserWarning('train_classifier: Cannot be None type')
