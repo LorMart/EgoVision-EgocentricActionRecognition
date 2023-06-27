@@ -56,16 +56,15 @@ models:
     sgd_momentum: 0.9
     weight_decay: 1e-7
     aggregation_strategy: TemporalRelation
-    train_clips: 5 # number of relations in temrelations
+    train_clips: 5 
     val_segments: 5
-    modules: ['gsd', 'gtd', 'gy', 'grd']
+    modules: ['gsd', 'gtd', 'grd']
     beta0: 0.75
     beta1: 0.75
     beta2: 0.5
     gamma: 1
-    delta: 1
-    lambda_s: 1
-    lambda_t: 1
-    lambda_r: 1
+    lambda_s: 0.75
+    lambda_t: 0.75
+    lambda_r: 0.75
     use_attention: False
     num_bottleneck: 512

@@ -130,8 +130,8 @@ class ActionRecognition(tasks.Task, ABC):
             self.gtd_loss.update(torch.mean(gtd_loss) / (self.total_batch / self.batch_size), self.batch_size)
         
             if self.model_args['RGB'].use_attention == True:
-                pred_clf_all = torch.cat((logits, predictions['pred_clf_target']))
-                lae = self.attentive_entropy(pred_clf_all, pred_gtd_all)
+                pred_gy_all = torch.cat((predictions['pred_gy_source'], predictions['pred_gy_target']))
+                lae = self.attentive_entropy(pred_gy_all, pred_gtd_all)
                 self.lae.update(lae/(self.total_batch / self.batch_size), self.batch_size)
        
         if 'grd' in self.model_args['RGB'].modules and self.model_args['RGB'].aggregation_strategy == 'TemporalRelation':
