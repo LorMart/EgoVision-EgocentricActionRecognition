@@ -68,8 +68,6 @@ class TA3N(nn.Module):
         weights_attn = self.get_trans_attn(pred_domain)
 
         weights_attn = weights_attn.view(-1, num_segments-1, 1).repeat(1,1,feat_fc.size()[-1]) 
-        print(weights_attn.shape)
-        print(feat_fc.shape)
         feat_fc_attn = (weights_attn+1) * feat_fc
 
         return feat_fc_attn
