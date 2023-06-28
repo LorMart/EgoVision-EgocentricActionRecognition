@@ -59,9 +59,6 @@ models:
     train_clips: 5 
     val_segments: 5
     modules: ['gsd', 'gtd', 'grd']
-    beta0: 0.75
-    beta1: 0.75
-    beta2: 0.5
     gamma: 1
     lambda_s: 0.75
     lambda_t: 0.75
