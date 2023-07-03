@@ -116,21 +116,21 @@ class TA3N(nn.Module):
             pred_grd_target = target_data
         
         if self.model_config.use_attention and self.model_config.aggregation_strategy == 'TemporalRelation': 
-			
-            tensors = ()
+        
+            pred_fc_domain_relation_video_source = torch.empty(0).to(self.device)
             for pred in pred_grd_source:
-                tensors = tensors + (pred.view(-1,1,2),)
-
-            pred_fc_domain_relation_video_source = torch.cat(tensors,1).view(-1,2)
+                pred_fc_domain_relation_video_source = torch.cat((pred_fc_domain_relation_video_source,pred.view(-1,1,2)),1)
+            pred_fc_domain_relation_video_source = pred_fc_domain_relation_video_source.view(-1,2)
             source_data = self.get_attn_feat_relation(source_data, pred_fc_domain_relation_video_source, train_clips)
 
-            if training:
-                tensors = ()
-                for pred in pred_grd_target:
-                    tensors = tensors + (pred.view(-1,1,2),)
+        if training:
+            pred_fc_domain_relation_video_target = torch.empty(0).to(self.device)
+            for pred in pred_grd_target:
+                pred_fc_domain_relation_video_target = torch.cat((pred_fc_domain_relation_video_target,pred.view(-1,1,2)),1)
 
-                pred_fc_domain_relation_video_target = torch.cat(tensors,1).view(-1,2)
-                target_data = self.get_attn_feat_relation(target_data, pred_fc_domain_relation_video_target, train_clips)
+            pred_fc_domain_relation_video_target = pred_fc_domain_relation_video_target.view(-1,2)
+            target_data = self.get_attn_feat_relation(target_data, pred_fc_domain_relation_video_target, train_clips)
+
 
         if self.model_config.aggregation_strategy == 'TemporalRelation':
             source_data = torch.sum(source_data, 1)
