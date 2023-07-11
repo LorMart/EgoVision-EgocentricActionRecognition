@@ -2,7 +2,6 @@ from abc import ABC
 import torch
 from utils import utils
 from functools import reduce
-import wandb
 import tasks
 from utils.logger import logger
 
@@ -44,6 +43,7 @@ class ActionRecognition(tasks.Task, ABC):
         self.gsd_loss = utils.AverageMeter()
         self.gtd_loss = utils.AverageMeter()
         self.grd_loss = utils.AverageMeter()
+        self.HAFN_loss = utils.AverageMeter()
         self.lae = utils.AverageMeter()
         self.ly = utils.AverageMeter()
         
@@ -90,6 +90,10 @@ class ActionRecognition(tasks.Task, ABC):
                 features[k][m] = feat[k]
 
         return logits_source, features
+
+    def get_L2norm_loss_self_driven(self, x):
+        l = (x.norm(p=2, dim=1).mean() - self.model_args['RGB'].radius) ** 2
+        return self.model_args['RGB'].lambda_HAFN * l
 
     def compute_loss(self, logits: Dict[str, torch.Tensor], label: torch.Tensor, predictions: Dict[str,torch.Tensor], loss_weight: float=1.0) :
         """Fuse the logits from different modalities and compute the classification loss.
@@ -147,7 +151,18 @@ class ActionRecognition(tasks.Task, ABC):
                 grd_loss.append(grd_loss_single_scale)
             grd_loss = sum(grd_loss)/(len(grd_loss))
             self.grd_loss.update(torch.mean(grd_loss) / (self.total_batch / self.batch_size), self.batch_size)
-       
+        
+        if 'HAFN_gsf' in self.model_args['RGB'].modules:
+            HAFN_loss_source = self.get_L2norm_loss_self_driven(predictions['pred_HAFN_gsf_source'])
+            HAFN_loss_target = self.get_L2norm_loss_self_driven(predictions['pred_HAFN_gsf_target'])
+            self.HAFN_loss.update((HAFN_loss_target+HAFN_loss_source)/(self.total_batch / self.batch_size), self.batch_size)
+
+        if 'HAFN_trm' in  self.model_args['RGB'].modules:
+            HAFN_loss_source = self.get_L2norm_loss_self_driven(predictions['pred_HAFN_trm_source'])
+            HAFN_loss_target = self.get_L2norm_loss_self_driven(predictions['pred_HAFN_trm_target'])
+            self.HAFN_loss.update((HAFN_loss_target+HAFN_loss_source)/(self.total_batch / self.batch_size), self.batch_size)
+
+
         self.ly.update(torch.mean(self.criterion(logits, label)) / (self.total_batch / self.batch_size), self.batch_size)
         
     def attentive_entropy(self, pred, pred_domain):
@@ -208,6 +223,7 @@ class ActionRecognition(tasks.Task, ABC):
         self.lae.reset()
         self.grd_loss.reset()
         self.ly.reset()
+        self.HAFN_loss.reset()
 
     def reset_acc(self):
         """Reset the classification accuracy."""
@@ -249,6 +265,8 @@ class ActionRecognition(tasks.Task, ABC):
                 final_loss += self.lae.val * self.model_args['RGB'].gamma
         if 'grd' in self.model_args['RGB'].modules and self.model_args['RGB'].aggregation_strategy == 'TemRelation':
             final_loss += self.grd_loss.val * self.model_args['RGB'].lambda_r
+        if 'HAFN_trm' in  self.model_args['RGB'].modules or 'HAFN_gsf' in  self.model_args['RGB'].modules:
+            final_loss += self.HAFN_loss.val
         final_loss += self.ly.val   
         
 

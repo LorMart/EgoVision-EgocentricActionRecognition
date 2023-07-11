@@ -2,7 +2,6 @@ from abc import ABC
 import torch
 from utils import utils
 from functools import reduce
-import wandb
 import tasks
 from utils.logger import logger
 
