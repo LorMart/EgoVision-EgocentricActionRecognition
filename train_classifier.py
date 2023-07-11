@@ -12,7 +12,7 @@ import numpy as np
 import os
 import models as model_list
 import tasks
-import wandb
+
 
 # global variables among training functions
 training_iterations = 0
@@ -33,9 +33,9 @@ def init_operations():
         os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpus)
 
     # wanbd logging configuration
-    if args.wandb_name is not None:
-        wandb.init(group=args.wandb_name, dir=args.wandb_dir)
-        wandb.run.name = args.name + "_" + args.shift.split("-")[0] + "_" + args.shift.split("-")[-1]
+    #if args.wandb_name is not None:
+    #    wandb.init(group=args.wandb_name, dir=args.wandb_dir)
+    #    wandb.run.name = args.name + "_" + args.shift.split("-")[0] + "_" + args.shift.split("-")[-1]
 
 
 def main():
