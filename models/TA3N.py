@@ -83,10 +83,21 @@ class TA3N(nn.Module):
 
     def forward(self, source_data, target_data, train_clips, training):
 
+        # HAFN #
+
+        pred_HAFN_gsf_source = []
+        pred_HAFN_gsf_target = []
+        pred_HAFN_trm_source = []
+        pred_HAFN_trm_target = []
 
         """Spacial Module ---> Gsf"""
         source_data = self.gsf(source_data)
         target_data = self.gsf(target_data) if training else None
+
+
+        if 'HAFN_gsf'in self.model_modules_args:
+            pred_HAFN_gsf_source = source_data
+            pred_HAFN_gsf_target = target_data
 
         if 'gsd' in self.model_modules_args:
             """Domain Classifier ---> Gsd"""
@@ -136,6 +147,10 @@ class TA3N(nn.Module):
             source_data = torch.sum(source_data, 1)
             target_data = torch.sum(target_data, 1) if training else None
 
+        if 'HAFN_trm' in self.model_modules_args:
+            pred_HAFN_trm_source = source_data
+            pred_HAFN_trm_target = target_data
+            
         if 'gtd' in self.model_modules_args:
             """Domain Classifiers ---> Gtd"""
             pred_gtd_source = self.gtd(source_data)
@@ -148,10 +163,12 @@ class TA3N(nn.Module):
         final_logits_source = self.gy(source_data)
         final_logits_target = self.gy(target_data) if training else None
 
-        return final_logits_source , { "pred_gsd_source": pred_gsd_source,"pred_gsd_target": pred_gsd_target, \
-                                       "pred_gtd_source": pred_gtd_source,"pred_gtd_target": pred_gtd_target, \
+        return final_logits_source , { "pred_gsd_source": pred_gsd_source,"pred_gsd_target": pred_gsd_target, 
+                                       "pred_gtd_source": pred_gtd_source,"pred_gtd_target": pred_gtd_target, 
                                        "pred_grd_source": pred_grd_source,"pred_grd_target": pred_grd_target,
-                                       "pred_gy_source": final_logits_source,"pred_gy_target": final_logits_target}
+                                       "pred_gy_source": final_logits_source,"pred_gy_target": final_logits_target,
+                                       "pred_HAFN_gsf_source": pred_HAFN_gsf_source,"pred_HAFN_gsf_source": pred_HAFN_gsf_target,
+                                       "pred_HAFN_trm_source": pred_HAFN_trm_source,"pred_HAFN_trm_target": pred_HAFN_trm_target}
     
     class TemporalModule(nn.Module):
         """Implementation of 2 different strategies to aggregate the frame features"""
