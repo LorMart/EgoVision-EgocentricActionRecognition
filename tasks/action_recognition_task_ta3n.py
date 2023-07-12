@@ -170,14 +170,14 @@ class ActionRecognition(tasks.Task, ABC):
             self.HAFN_loss.update((HAFN_loss_target+HAFN_loss_source)/(self.total_batch / self.batch_size), self.batch_size)
         
         if 'SAFN_gsf' in self.model_args['RGB'].modules:
-            HAFN_loss_source = self.get_L2norm_loss_self_driven_SAFN(predictions['pred_AFN_gsf_source'])
-            HAFN_loss_target = self.get_L2norm_loss_self_driven_SAFN(predictions['pred_AFN_gsf_target'])
-            self.HAFN_loss.update((HAFN_loss_target+HAFN_loss_source)/(self.total_batch / self.batch_size), self.batch_size)
+            SAFN_loss_source = self.get_L2norm_loss_self_driven_SAFN(predictions['pred_AFN_gsf_source'])
+            SAFN_loss_target = self.get_L2norm_loss_self_driven_SAFN(predictions['pred_AFN_gsf_target'])
+            self.SAFN_loss.update((SAFN_loss_target+SAFN_loss_source)/(self.total_batch / self.batch_size), self.batch_size)
 
         if 'SAFN_trm' in  self.model_args['RGB'].modules:
-            HAFN_loss_source = self.get_L2norm_loss_self_driven_SAFN(predictions['pred_AFN_trm_source'])
-            HAFN_loss_target = self.get_L2norm_loss_self_driven_SAFN(predictions['pred_AFN_trm_target'])
-            self.HAFN_loss.update((HAFN_loss_target+HAFN_loss_source)/(self.total_batch / self.batch_size), self.batch_size)
+            SAFN_loss_source = self.get_L2norm_loss_self_driven_SAFN(predictions['pred_AFN_trm_source'])
+            SAFN_loss_target = self.get_L2norm_loss_self_driven_SAFN(predictions['pred_AFN_trm_target'])
+            self.SAFN_loss.update((SAFN_loss_target+SAFN_loss_source)/(self.total_batch / self.batch_size), self.batch_size)
 
 
 
