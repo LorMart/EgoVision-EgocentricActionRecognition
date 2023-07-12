@@ -44,6 +44,7 @@ class ActionRecognition(tasks.Task, ABC):
         self.gtd_loss = utils.AverageMeter()
         self.grd_loss = utils.AverageMeter()
         self.HAFN_loss = utils.AverageMeter()
+        self.SAFN_loss = utils.AverageMeter()
         self.lae = utils.AverageMeter()
         self.ly = utils.AverageMeter()
         
@@ -91,9 +92,15 @@ class ActionRecognition(tasks.Task, ABC):
 
         return logits_source, features
 
-    def get_L2norm_loss_self_driven(self, x):
+    def get_L2norm_loss_self_driven_HAFN(self, x):
         l = (x.norm(p=2, dim=1).mean() - self.model_args['RGB'].radius) ** 2
         return self.model_args['RGB'].lambda_HAFN * l
+    
+    def get_L2norm_loss_self_driven_SAFN(x):
+        radius = x.norm(p=2, dim=1).detach()
+        radius = radius + 1.0
+        l = ((x.norm(p=2, dim=1) - radius) ** 2).mean()
+        return l
 
     def compute_loss(self, logits: Dict[str, torch.Tensor], label: torch.Tensor, predictions: Dict[str,torch.Tensor], loss_weight: float=1.0) :
         """Fuse the logits from different modalities and compute the classification loss.
@@ -153,14 +160,25 @@ class ActionRecognition(tasks.Task, ABC):
             self.grd_loss.update(torch.mean(grd_loss) / (self.total_batch / self.batch_size), self.batch_size)
         
         if 'HAFN_gsf' in self.model_args['RGB'].modules:
-            HAFN_loss_source = self.get_L2norm_loss_self_driven(predictions['pred_HAFN_gsf_source'])
-            HAFN_loss_target = self.get_L2norm_loss_self_driven(predictions['pred_HAFN_gsf_target'])
+            HAFN_loss_source = self.get_L2norm_loss_self_driven_HAFN(predictions['pred_AFN_gsf_source'])
+            HAFN_loss_target = self.get_L2norm_loss_self_driven_HAFN(predictions['pred_AFN_gsf_target'])
             self.HAFN_loss.update((HAFN_loss_target+HAFN_loss_source)/(self.total_batch / self.batch_size), self.batch_size)
 
         if 'HAFN_trm' in  self.model_args['RGB'].modules:
-            HAFN_loss_source = self.get_L2norm_loss_self_driven(predictions['pred_HAFN_trm_source'])
-            HAFN_loss_target = self.get_L2norm_loss_self_driven(predictions['pred_HAFN_trm_target'])
+            HAFN_loss_source = self.get_L2norm_loss_self_driven_HAFN(predictions['pred_AFN_trm_source'])
+            HAFN_loss_target = self.get_L2norm_loss_self_driven_HAFN(predictions['pred_AFN_trm_target'])
             self.HAFN_loss.update((HAFN_loss_target+HAFN_loss_source)/(self.total_batch / self.batch_size), self.batch_size)
+        
+        if 'SAFN_gsf' in self.model_args['RGB'].modules:
+            HAFN_loss_source = self.get_L2norm_loss_self_driven_SAFN(predictions['pred_AFN_gsf_source'])
+            HAFN_loss_target = self.get_L2norm_loss_self_driven_SAFN(predictions['pred_AFN_gsf_target'])
+            self.HAFN_loss.update((HAFN_loss_target+HAFN_loss_source)/(self.total_batch / self.batch_size), self.batch_size)
+
+        if 'SAFN_trm' in  self.model_args['RGB'].modules:
+            HAFN_loss_source = self.get_L2norm_loss_self_driven_SAFN(predictions['pred_AFN_trm_source'])
+            HAFN_loss_target = self.get_L2norm_loss_self_driven_SAFN(predictions['pred_AFN_trm_target'])
+            self.HAFN_loss.update((HAFN_loss_target+HAFN_loss_source)/(self.total_batch / self.batch_size), self.batch_size)
+
 
 
         self.ly.update(torch.mean(self.criterion(logits, label)) / (self.total_batch / self.batch_size), self.batch_size)
@@ -224,6 +242,7 @@ class ActionRecognition(tasks.Task, ABC):
         self.grd_loss.reset()
         self.ly.reset()
         self.HAFN_loss.reset()
+        self.SAFN_loss.reset()
 
     def reset_acc(self):
         """Reset the classification accuracy."""
@@ -266,7 +285,9 @@ class ActionRecognition(tasks.Task, ABC):
         if 'grd' in self.model_args['RGB'].modules and self.model_args['RGB'].aggregation_strategy == 'TemRelation':
             final_loss += self.grd_loss.val * self.model_args['RGB'].lambda_r
         if 'HAFN_trm' in  self.model_args['RGB'].modules or 'HAFN_gsf' in  self.model_args['RGB'].modules:
-            final_loss += self.HAFN_loss.val
+            final_loss += self.HAFN_loss.val * self.model_args['RGB'].lambda_HAFN
+        if 'SAFN_trm' in  self.model_args['RGB'].modules or 'SAFN_gsf' in  self.model_args['RGB'].modules:
+            final_loss += self.SAFN_loss.val * self.model_args['RGB'].lambda_SAFN
         final_loss += self.ly.val   
         
 

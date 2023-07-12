@@ -167,8 +167,8 @@ class TA3N(nn.Module):
                                        "pred_gtd_source": pred_gtd_source,"pred_gtd_target": pred_gtd_target, 
                                        "pred_grd_source": pred_grd_source,"pred_grd_target": pred_grd_target,
                                        "pred_gy_source": final_logits_source,"pred_gy_target": final_logits_target,
-                                       "pred_HAFN_gsf_source": pred_HAFN_gsf_source,"pred_HAFN_gsf_source": pred_HAFN_gsf_target,
-                                       "pred_HAFN_trm_source": pred_HAFN_trm_source,"pred_HAFN_trm_target": pred_HAFN_trm_target}
+                                       "pred_AFN_gsf_source": pred_HAFN_gsf_source,"pred_AFN_gsf_source": pred_HAFN_gsf_target,
+                                       "pred_AFN_trm_source": pred_HAFN_trm_source,"pred_AFN_trm_target": pred_HAFN_trm_target}
     
     class TemporalModule(nn.Module):
         """Implementation of 2 different strategies to aggregate the frame features"""
