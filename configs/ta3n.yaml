@@ -58,12 +58,13 @@ models:
     aggregation_strategy: TemporalRelation
     train_clips: 5 
     val_segments: 5
-    modules: ['gsd', 'gtd', 'grd', 'HAFN_trm']
+    modules: ['gsd', 'gtd', 'grd', 'SAFN_trm']
     gamma: 0.2
     lambda_s: 0.75
     lambda_t: 0.75
     lambda_r: 0.75
-    lambda_HAFN: 1
+    lambda_HAFN: 0.00009
+    lambda_SAFN: 0.00009
     radius: 1
     use_attention: False
     num_bottleneck: 512

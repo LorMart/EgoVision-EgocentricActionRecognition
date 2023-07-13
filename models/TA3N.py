@@ -85,10 +85,10 @@ class TA3N(nn.Module):
 
         # HAFN #
 
-        pred_HAFN_gsf_source = []
-        pred_HAFN_gsf_target = []
-        pred_HAFN_trm_source = []
-        pred_HAFN_trm_target = []
+        pred_AFN_gsf_source = []
+        pred_AFN_gsf_target = []
+        pred_AFN_trm_source = []
+        pred_AFN_trm_target = []
 
         """Spacial Module ---> Gsf"""
         source_data = self.gsf(source_data)

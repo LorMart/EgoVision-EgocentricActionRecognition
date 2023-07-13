@@ -96,9 +96,9 @@ class ActionRecognition(tasks.Task, ABC):
         l = (x.norm(p=2, dim=1).mean() - self.model_args['RGB'].radius) ** 2
         return self.model_args['RGB'].lambda_HAFN * l
     
-    def get_L2norm_loss_self_driven_SAFN(x):
+    def get_L2norm_loss_self_driven_SAFN(self, x):
         radius = x.norm(p=2, dim=1).detach()
-        radius = radius + 1.0
+        radius = radius + 0.3
         l = ((x.norm(p=2, dim=1) - radius) ** 2).mean()
         return l
 
@@ -288,7 +288,7 @@ class ActionRecognition(tasks.Task, ABC):
             final_loss += self.HAFN_loss.val * self.model_args['RGB'].lambda_HAFN
         if 'SAFN_trm' in  self.model_args['RGB'].modules or 'SAFN_gsf' in  self.model_args['RGB'].modules:
             final_loss += self.SAFN_loss.val * self.model_args['RGB'].lambda_SAFN
-        final_loss += self.ly.val   
+        final_loss += self.ly.val
         
 
         final_loss.backward(retain_graph=retain_graph) 
