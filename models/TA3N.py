@@ -3,6 +3,7 @@ import torch
 import models
 from torch.autograd import Function
 from models import TRNmodule
+import math
 
 class TA3N(nn.Module):
     "Model architecture explained in the paper Temporal Attentive Alignment for Large-Scale Video Domain Adaptation"
@@ -91,13 +92,13 @@ class TA3N(nn.Module):
         pred_AFN_trm_target = []
 
         """Spacial Module ---> Gsf"""
-        source_data = self.gsf(source_data)
+        source_data = self.gsf(source_data) 
         target_data = self.gsf(target_data) if training else None
 
 
         if 'HAFN_gsf'in self.model_modules_args or 'SAFN_gsf' in self.model_modules_args:
-            pred_AFN_gsf_source = source_data
-            pred_AFN_gsf_target = target_data
+            pred_AFN_gsf_source = source_data*math.sqrt(0.5) if training else None
+            pred_AFN_gsf_target = target_data*math.sqrt(0.5) if training else None
 
         if 'gsd' in self.model_modules_args:
             """Domain Classifier ---> Gsd"""
@@ -147,9 +148,9 @@ class TA3N(nn.Module):
             source_data = torch.sum(source_data, 1)
             target_data = torch.sum(target_data, 1) if training else None
 
-        if 'HAFN_trm' in self.model_modules_args or 'SAFN_trm' in self.model_modules_args:
-            pred_AFN_trm_source = source_data
-            pred_AFN_trm_target = target_data
+        if 'HAFN_trm' in self.model_modules_args or 'SAFN_trm' in self.model_modules_args :
+            pred_AFN_trm_source = source_data*math.sqrt(0.5) if training else None
+            pred_AFN_trm_target = target_data*math.sqrt(0.5) if training else None
             
         if 'gtd' in self.model_modules_args:
             """Domain Classifiers ---> Gtd"""
