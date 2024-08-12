@@ -1,2 +1,2 @@
-# Course project of Machine Learning and Deep Learning (MLDL) 2023
+# Course project of Machine Learning and Deep Learning (2023)
 
